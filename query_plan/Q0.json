@@ -1,0 +1,109 @@
+{
+  "rels": [
+    {
+      "id": "0",
+      "relOp": "org.apache.calcite.adapter.enumerable.EnumerableTableScan",
+      "table": [
+        "CUSTOMER"
+      ],
+      "inputs": []
+    },
+    {
+      "id": "1",
+      "relOp": "org.apache.calcite.adapter.enumerable.EnumerableFilter",
+      "condition": {
+        "op": {
+          "name": "<",
+          "kind": "LESS_THAN",
+          "syntax": "BINARY"
+        },
+        "operands": [
+          {
+            "input": 0,
+            "name": "$0"
+          },
+          {
+            "literal": 3,
+            "type": {
+              "type": "INTEGER",
+              "nullable": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "2",
+      "relOp": "org.apache.calcite.adapter.enumerable.EnumerableTableScan",
+      "table": [
+        "ORDERS"
+      ],
+      "inputs": []
+    },
+    {
+      "id": "3",
+      "relOp": "org.apache.calcite.adapter.enumerable.EnumerableHashJoin",
+      "condition": {
+        "op": {
+          "name": "=",
+          "kind": "EQUALS",
+          "syntax": "BINARY"
+        },
+        "operands": [
+          {
+            "input": 0,
+            "name": "$0"
+          },
+          {
+            "input": 9,
+            "name": "$9"
+          }
+        ]
+      },
+      "joinType": "inner",
+      "inputs": [
+        "1",
+        "2"
+      ]
+    },
+    {
+      "id": "4",
+      "relOp": "org.apache.calcite.adapter.enumerable.EnumerableProject",
+      "fields": [
+        "C_NAME",
+        "O_ORDERKEY",
+        "O_ORDERDATE"
+      ],
+      "exprs": [
+        {
+          "input": 1,
+          "name": "$1"
+        },
+        {
+          "input": 8,
+          "name": "$8"
+        },
+        {
+          "input": 12,
+          "name": "$12"
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "relOp": "org.apache.calcite.adapter.enumerable.EnumerableSort",
+      "collation": [
+        {
+          "field": 0,
+          "direction": "ASCENDING",
+          "nulls": "LAST"
+        },
+        {
+          "field": 1,
+          "direction": "ASCENDING",
+          "nulls": "LAST"
+        }
+      ]
+    }
+  ]
+}

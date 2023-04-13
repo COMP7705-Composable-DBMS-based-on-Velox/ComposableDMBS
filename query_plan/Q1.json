@@ -1,0 +1,66 @@
+{
+  "rels": [
+    {
+      "id": "0",
+      "relOp": "org.apache.calcite.adapter.enumerable.EnumerableTableScan",
+      "table": [
+        "ORDERS"
+      ],
+      "inputs": []
+    },
+    {
+      "id": "1",
+      "relOp": "org.apache.calcite.adapter.enumerable.EnumerableProject",
+      "fields": [
+        "o_custkey"
+      ],
+      "exprs": [
+        {
+          "input": 1,
+          "name": "$1"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "relOp": "org.apache.calcite.adapter.enumerable.EnumerableAggregate",
+      "group": [
+        0
+      ],
+      "aggs": [
+        {
+          "agg": {
+            "name": "COUNT",
+            "kind": "COUNT",
+            "syntax": "FUNCTION_STAR"
+          },
+          "type": {
+            "type": "BIGINT",
+            "nullable": false
+          },
+          "distinct": false,
+          "operands": [],
+          "name": "EXPR$1"
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "relOp": "org.apache.calcite.adapter.enumerable.EnumerableProject",
+      "fields": [
+        "O_CUSTKEY",
+        "EXPR$1"
+      ],
+      "exprs": [
+        {
+          "input": 0,
+          "name": "$0"
+        },
+        {
+          "input": 1,
+          "name": "$1"
+        }
+      ]
+    }
+  ]
+}
