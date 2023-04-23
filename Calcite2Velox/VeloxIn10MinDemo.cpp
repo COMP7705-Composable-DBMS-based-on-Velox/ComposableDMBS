@@ -31,6 +31,7 @@
 #include "json/json.h"
 #include "json/value.h"
 #include <fstream>
+#include <time.h>
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -112,7 +113,7 @@ class VeloxIn10MinDemo : public VectorTestBase {
 void VeloxIn10MinDemo::run() {
   Json::Reader reader;
   Json::Value root;
-  std::ifstream in("/Users/apple/Desktop/output/Q2.json", std::ios::binary);
+  std::ifstream in("/Users/apple/Desktop/output/Q0.json", std::ios::binary);
 
   if (!in.is_open()) {
     std::cout << "Error opening file\n";
@@ -132,7 +133,7 @@ void VeloxIn10MinDemo::run() {
   std::map<std::string, std::vector<std::string>> columnsmap;
   std::vector<std::string> orderColumns = {"o_orderkey", "o_custkey", "o_orderstatus", "o_totalprice", "o_orderdate", "o_orderpriority", "o_clerk", "o_shippriority", "o_comment"};
   columnsmap.insert(std::pair<std::string, std::vector<std::string>>("ORDERS", orderColumns));
-  std::vector<std::string> custColumns = {"c_custkey", "c_name", "c_addressname", "c_nationkey", "c_phone", "c_acctbal", "c_mktsegment", "c_comment"};
+  std::vector<std::string> custColumns = {"c_custkey", "c_name", "c_address", "c_nationkey", "c_phone", "c_acctbal", "c_mktsegment", "c_comment"};
   columnsmap.insert(std::pair<std::string, std::vector<std::string>>("CUSTOMER", custColumns));
   std::vector<std::string> lineitemColumns = {"l_orderkey", "l_partkey", "l_suppkey", "l_linenumber", "l_quantity", "l_extendedprice", "l_discount", "l_tax", "l_returnflag", "l_linestatus", "l_shipdate", "l_commitdate", "l_receiptdate", "l_shipinstruct", "l_shipmode", "l_comment"};
   columnsmap.insert(std::pair<std::string, std::vector<std::string>>("LINEITEM", lineitemColumns));
@@ -147,11 +148,12 @@ void VeloxIn10MinDemo::run() {
   std::vector<std::string> supplierColumns = {"s_suppkey", "s_name", "s_address", "s_nationkey", "s_phone", "s_acctbal", "s_comment"};
   columnsmap.insert(std::pair<std::string, std::vector<std::string>>("SUPPLIER", supplierColumns));
 
-  std::cout << columnsmap["ORDERS"][0] << std::endl;
+//  std::cout << columnsmap["ORDERS"][0] << std::endl;
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
   std::vector<PlanBuilder> builders;
+  std::vector<core::PlanNodeId> ids;
 
   if (reader.parse(in, root)) {
     // root: relation algebra array
@@ -162,58 +164,145 @@ void VeloxIn10MinDemo::run() {
     std::string currentTable;
 
     // Track all columns be read, need to use index to get the column name
-    std::vector<std::string> allColumns;
+    std::vector<std::string> currentAllColumns;
+    std::vector<std::string> nextAllColumns;
+
+    int numberOfScans = 0;
     for (unsigned int i = 0; i < rels.size(); i++) {
-      int numberOfScans = 0;
+      nextAllColumns.clear();
       if (rels[i]["relOp"] == "org.apache.calcite.adapter.enumerable.EnumerableTableScan") {
         std::string table = rels[i]["table"][0].asString();
-        PlanBuilder builder(planNodeIdGenerator);
+        builders.push_back(PlanBuilder(planNodeIdGenerator));
+        numberOfScans += 1;
         core::PlanNodeId scanId;
         if (table == "ORDERS") {
-          builder.tableScan(tablemap[table],
+          builders[builders.size() - 1].tableScan(tablemap[table],
                             {"o_orderkey", "o_custkey", "o_orderstatus", "o_totalprice", "o_orderdate", "o_orderpriority", "o_clerk", "o_shippriority", "o_comment"},
-                            1).capturePlanNodeId(scanId);
+                            10).capturePlanNodeId(scanId);
+        }else if (table == "CUSTOMER") {
+          builders[builders.size() - 1].tableScan(tablemap[table],
+                            {"c_custkey", "c_name", "c_address", "c_nationkey", "c_phone", "c_acctbal", "c_mktsegment", "c_comment"},
+                            10).capturePlanNodeId(scanId);
         }
-        builders.push_back(builder);
-        numberOfScans += 1;
         currentTable = table;
+        ids.push_back(scanId);
+        currentAllColumns.insert(currentAllColumns.end(), columnsmap[table].begin(), columnsmap[table].end());
       }
       else if (rels[i]["relOp"] == "org.apache.calcite.adapter.enumerable.EnumerableFilter") {
-//        std::cout << rels[i]["condition"]["op"]["name"] << std::endl;
-        std::string filter = "";
+        std::string filter_con = "";
         std::string operator_name = rels[i]["condition"]["op"]["name"].asString();
 
-        std::cout << "Number of operands: "
-                  << rels[i]["condition"]["operands"].size()
-                  << std::endl;
-        filter.append(operator_name + " ");
         for (int j = 0; j < rels[i]["condition"]["operands"].size(); ++j) {
-//          std::cout << rels[i]["condition"]["operands"][j] << std::endl;
+          if (j == 1) {
+            filter_con.append(operator_name + " ");
+          }
           if (rels[i]["condition"]["operands"][j].isMember("input")) {
-            std::cout << "Input: "
-                      << rels[i]["condition"]["operands"][j]["input"]
-                      << std::endl;
             int columnNo = rels[i]["condition"]["operands"][j]["input"].asInt();
 
-            filter.append(
+            filter_con.append(
                 columnsmap[currentTable][columnNo]);
           }else if (rels[i]["condition"]["operands"][j].isMember("literal")) {
-            std::cout << "Literal: "
-                      << rels[i]["condition"]["operands"][j]["literal"]
-                      << std::endl;
-            filter.append(
+            filter_con.append(
                 rels[i]["condition"]["operands"][j]["literal"].asString());
           }
 
           if (j != rels[i]["condition"]["operands"].size() - 1) {
-            filter.append(" ");
+            filter_con.append(" ");
           }
+
         }
-        std::cout << "Filter: " << filter << std::endl;
-        //        builders[numberOfScans - 1].filter();
+//        std::cout << filter_con << std::endl;
+        builders[numberOfScans - 1].filter(filter_con);
+      }
+      else if (rels[i]["relOp"] == "org.apache.calcite.adapter.enumerable.EnumerableProject") {
+        for (int j = 0; j < rels[i]["exprs"].size(); j++) {
+          nextAllColumns.push_back(currentAllColumns[rels[i]["exprs"][j]["input"].asInt()]);
+        }
+        currentAllColumns = nextAllColumns;
+
+        builders[builders.size() - 1].project(currentAllColumns);
+      }
+      else if (rels[i]["relOp"] == "org.apache.calcite.adapter.enumerable.EnumerableAggregate") {
+        std::vector<std::string> groups;
+        for (int j = 0; j < rels[i]["group"].size(); j++) {
+          groups.push_back(currentAllColumns[rels[i]["group"][j].asInt()]);
+        }
+//        std::vector<std::vector<std::string>> aggs;
+//        std::vector<bool> distinct;
+        for (int j = 0; j < rels[i]["aggs"].size(); j++) {
+          std::string syntax = "";
+          if (rels[i]["aggs"][j]["agg"]["syntax"].asString() == "FUNCTION_STAR") {
+            syntax = "*";
+          }
+//          aggs.push_back({rels[i]["aggs"][j]["agg"]["name"].asString(),
+//                          syntax,
+//                          rels[i]["aggs"][j]["name"].asString()});
+//          distinct.push_back(rels[i]["aggs"][j]["distinct"].asBool());
+          if (rels[i]["aggs"][j]["distinct"].asBool() == true) {
+            builders[numberOfScans - 1].
+                singleAggregation(groups,
+                                  {rels[i]["aggs"][j]["agg"]["name"].asString() + "(distinct " + syntax + ")" + " as " + rels[i]["aggs"][j]["name"].asString()});
+          }else {
+            builders[numberOfScans - 1].
+                singleAggregation(groups,
+                                  {rels[i]["aggs"][j]["agg"]["name"].asString() + "(" + syntax + ")" + " as " + rels[i]["aggs"][j]["name"].asString()});
+          }
+          currentAllColumns.push_back(rels[i]["aggs"][j]["name"].asString());
+        }
+      }
+      else if (rels[i]["relOp"] == "org.apache.calcite.adapter.enumerable.EnumerableHashJoin") {
+        std::string op = rels[i]["condition"]["op"]["name"].asString();
+        std::vector<std::string> operands;
+        std::string joinType = rels[i]["joinType"].asString();
+        for (int j = 0; j < rels[i]["condition"]["operands"].size(); j++) {
+          operands.push_back(currentAllColumns[rels[i]["condition"]["operands"][j]["input"].asInt()]);
+        }
+        builders[builders.size() - 2].hashJoin({operands[0]},
+                                             {operands[1]},
+                                             builders[builders.size() - 1].planNode(),
+                                             "",
+                                             currentAllColumns,
+                                             core::JoinType::kInner);
+        builders.pop_back();
+      }
+      else if (rels[i]["relOp"] == "org.apache.calcite.adapter.enumerable.EnumerableSort") {
+        std::vector<std::string> keys;
+
+        for (int j = 0; j < rels[i]["collation"].size(); j++) {
+          std::string key = "";
+          key.append(currentAllColumns[rels[i]["collation"][j]["field"].asInt()] + " ");
+          if (rels[i]["collation"][j]["direction"] == "ASCENDING") {
+            key.append("ASC ");
+          }else {
+            key.append("DESC ");
+          }
+          key.append("NULLS " + rels[i]["collation"][j]["nulls"].asString());
+          keys.push_back(key);
+        }
+
+        builders[builders.size() - 1].orderBy(keys, false);
       }
     }
   }
+
+  auto plan = builders[builders.size() - 1].planNode();
+  double start = 1000 * ((double)clock()) / (double)CLOCKS_PER_SEC;
+  AssertQueryBuilder queryBuilder(plan);
+  for (int i = 0; i < ids.size(); i++) {
+    queryBuilder.split(ids[i], makeTpchSplit());
+  }
+  auto result =
+      queryBuilder.copyResults(pool());
+
+  double end = 1000 * ((double)clock()) / (double)CLOCKS_PER_SEC;
+  std::cout << std::endl
+            << "> Q0 query: "
+            << result->toString() << std::endl;
+  std::cout << result->toString(0, 1000) << std::endl;
+
+  std::cout << std::endl
+            << "Time elapsed: "
+            << (end - start) << std::endl;
 
 
   // Let’s create two vectors of 64-bit integers and one vector of strings.
@@ -370,25 +459,28 @@ void VeloxIn10MinDemo::run() {
 //  core::PlanNodeId nationScanId;
 //  core::PlanNodeId regionScanId;
 //
-//  PlanBuilder builder(planNodeIdGenerator);
-//  builder.tableScan(
+//  std::vector<PlanBuilder> buildersTest;
+//  buildersTest.push_back(PlanBuilder(planNodeIdGenerator));
+//  buildersTest.push_back(PlanBuilder(planNodeIdGenerator));
+//  buildersTest[1]
+//      .tableScan(
+//          tpch::Table::TBL_REGION,
+//          {"r_regionkey", "r_name"},
+//          1 /*scaleFactor*/)
+//      .capturePlanNodeId(regionScanId);
+//
+//  buildersTest[0].tableScan(
 //      tpch::Table::TBL_NATION, {"n_regionkey"}, 1 /*scaleFactor*/)
 //      .capturePlanNodeId(nationScanId)
 //      .hashJoin({"n_regionkey"},
 //                {"r_regionkey"},
-//                PlanBuilder(planNodeIdGenerator)
-//                    .tableScan(
-//                        tpch::Table::TBL_REGION,
-//                        {"r_regionkey", "r_name"},
-//                        1 /*scaleFactor*/)
-//                    .capturePlanNodeId(regionScanId)
-//                    .planNode(),
+//                buildersTest[1].planNode(),
 //                "",
 //                {"r_name"})
 //      .singleAggregation({"r_name"}, {"count(1) as nation_cnt"})
 //      .orderBy({"r_name"}, false);
 //
-//  auto planTest = builder.planNode();
+//  auto planTest = buildersTest[0].planNode();
 //
 //  auto nationCntTest = AssertQueryBuilder(planTest)
 //                           .split(nationScanId, makeTpchSplit())
