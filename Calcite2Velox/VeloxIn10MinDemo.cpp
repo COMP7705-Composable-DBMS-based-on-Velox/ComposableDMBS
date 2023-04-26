@@ -148,6 +148,8 @@ void VeloxIn10MinDemo::run() {
   std::vector<std::string> supplierColumns = {"s_suppkey", "s_name", "s_address", "s_nationkey", "s_phone", "s_acctbal", "s_comment"};
   columnsmap.insert(std::pair<std::string, std::vector<std::string>>("SUPPLIER", supplierColumns));
 
+  std::map<std::string, std::vector<std::string>> columnsmap_scan(columnsmap);
+
 //  std::cout << columnsmap["ORDERS"][0] << std::endl;
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
@@ -175,15 +177,18 @@ void VeloxIn10MinDemo::run() {
         builders.push_back(PlanBuilder(planNodeIdGenerator));
         numberOfScans += 1;
         core::PlanNodeId scanId;
-        if (table == "ORDERS") {
-          builders[builders.size() - 1].tableScan(tablemap[table],
-                            {"o_orderkey", "o_custkey", "o_orderstatus", "o_totalprice", "o_orderdate", "o_orderpriority", "o_clerk", "o_shippriority", "o_comment"},
-                            10).capturePlanNodeId(scanId);
-        }else if (table == "CUSTOMER") {
-          builders[builders.size() - 1].tableScan(tablemap[table],
-                            {"c_custkey", "c_name", "c_address", "c_nationkey", "c_phone", "c_acctbal", "c_mktsegment", "c_comment"},
-                            10).capturePlanNodeId(scanId);
-        }
+//        if (table == "ORDERS") {
+//          builders[builders.size() - 1].tableScan(tablemap[table],
+//                                                  std::move(columnsmap_scan[table]),
+//                                                  1).capturePlanNodeId(scanId);
+//        }else if (table == "CUSTOMER") {
+//          builders[builders.size() - 1].tableScan(tablemap[table],
+//                                                  std::move(columnsmap_scan[table]),
+//                                                  1).capturePlanNodeId(scanId);
+//        }
+        builders[builders.size() - 1].tableScan(tablemap[table],
+                                                std::move(columnsmap_scan[table]),
+                                                1).capturePlanNodeId(scanId);
         currentTable = table;
         ids.push_back(scanId);
         currentAllColumns.insert(currentAllColumns.end(), columnsmap[table].begin(), columnsmap[table].end());
