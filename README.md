@@ -2,10 +2,17 @@
 
 ## Calcite
 
+References:
+
 https://www.youtube.com/watch?v=meI0W12f_nw
+
 https://github.com/zabetak/calcite-tutorial
+
 https://liebing.org.cn/collections/calcite/
+
 https://frankma.me/posts/papers/apache-calcite/
+
+Refactor calcite part in [calcite-tpch](./calcite-tpch.zip)
 
 Sql and Physical Plans are in [query_plan](./query_plan)
 
